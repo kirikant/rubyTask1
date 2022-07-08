@@ -1,3 +1,4 @@
+require 'addressable/uri'
 require 'open-uri'
 require 'csv'
 require 'nokogiri/class_resolver'
@@ -13,19 +14,19 @@ def get_href_title(products)
   products_info = products.xpath('//a[@class=
 "product_img_link pro_img_hover_scale product-list-category-img"]')
 
-  puts"getting links of products packages"
+  puts "getting links of products packages"
   products_info.xpath('@href').each {
     |href|
     package_refs << href
   }
 
-  puts"getting titles of products"
+  puts "getting titles of products"
   products_info.xpath('@title').each_with_index {
     |title, i|
     titles_hash[String.new(package_refs[i])] = String.new(title)
   }
 
-  puts"getting images of products"
+  puts "getting images of products"
   products_info.xpath('//img[@class="replace-2x img-responsive front-image"]//@src').each_with_index {
     |image_ref, i|
     image_refs_hash[String.new(package_refs[i])] = String.new(image_ref)
@@ -34,15 +35,13 @@ def get_href_title(products)
   [titles_hash, image_refs_hash, package_refs]
 end
 
-
 def get_packages_prices(products_hash)
-  puts"getting prices of products"
+  puts "getting prices of products"
   ref_packages = Hash.new
   products_hash[2].each { |ref|
     html = URI.open(ref)
     product_page = Nokogiri::HTML(html)
     html.close
-
 
     (product_page.xpath('//div[@class="main_content_area"]
 //div[@class="columns-container wide_container"]
@@ -66,14 +65,16 @@ def get_packages_prices(products_hash)
   ref_packages
 end
 
-
-def combine_info(products_hash, products_packages, file_name)
+def combine_info(products_hash, products_packages, file_name,page_counter)
   doc = CSV.open("#{file_name}.env", "a+")
   image_refs = products_hash[1]
   titles = products_hash[0]
 
   puts "writing the data"
-  doc << ["title", "price", "image_link"]
+  if page_counter==1
+    doc << ["title", "price", "image_link"]
+  end
+
   products_packages.each { |key, value|
     array_csv = []
     array_csv << "#{titles[value]}(#{key.split(',')[0]})"
@@ -89,22 +90,44 @@ def combine_info(products_hash, products_packages, file_name)
 end
 
 puts "enter the category link,please"
-# url = 'https://www.petsonic.com/farmacia-para-gatos/?categorias=hepaticos,vitaminas-para-gatos'
-url=gets()
+  # url = 'https://www.petsonic.com/farmacia-para-gatos/?categorias=hepaticos,vitaminas-para-gatos'
+url = gets().chomp
 
 puts "enter the file name,please"
-file_name=gets()
+file_name = gets().chomp
+page_counter = 1
 
-html = URI.open(url)
-category_page = Nokogiri::HTML(html)
-html.close
+while true do
+  begin
 
-products = category_page.xpath('//div[@class="main_content_area"]//div[@class="columns-container wide_container"]
-//div[@class="pro_outer_box"]')
+    html = URI.open(url + "&p=#{page_counter}")
+     base=html.base_uri
 
-products_hash = get_href_title(products)
-products_packages = get_packages_prices(products_hash)
-combine_info(products_hash, products_packages, "#{file_name}")
+     current_url = Addressable::URI.parse(url + "&p=#{page_counter}")
+    category_page = Nokogiri::HTML(html)
+
+
+
+
+    if current_url.to_s.split("p=")[1].eql?(base.to_s.split("p=")[1]) || page_counter == 1
+
+      puts "parsing page number #{page_counter}"
+      products = category_page.xpath('//div[@class="main_content_area"]//div[@class="columns-container wide_container"]
+    //div[@class="pro_outer_box"]')
+
+      products_hash = get_href_title(products)
+      products_packages = get_packages_prices(products_hash)
+      combine_info(products_hash, products_packages, "#{file_name}",page_counter)
+
+      page_counter = page_counter + 1
+
+    else
+      break
+    end
+  end
+
+end
+
 
 
 
