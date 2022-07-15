@@ -82,39 +82,41 @@ def combine_info(products_hash, products_packages, file_name, page_counter)
   puts 'complete'
 end
 
-puts 'enter the category link,please'
-# url = 'https://www.petsonic.com/farmacia-para-gatos/?categorias=hepaticos,vitaminas-para-gatos'
-url = gets.chomp
+def main
+  puts 'enter the category link,please'
+  # url = 'https://www.petsonic.com/farmacia-para-gatos/'
+  url = gets.chomp
 
-puts 'enter the file name,please'
-file_name = gets.chomp
-page_counter = 1
-marker = true
+  puts 'enter the file name,please'
+  file_name = gets.chomp
+  page_counter = 1
+  marker = true
+  while marker
 
-while marker
+    html = if page_counter == 1
+             Curl.get(url)
+           else
+             Curl.get(url + "?p=#{page_counter}")
+           end
 
-  html = if page_counter == 1
-           Curl.get(url)
-         else
-           Curl.get(url + "&p=#{page_counter}")
-         end
+    if !String.new(html.body_str).empty?
 
-  if !String.new(html.body_str).empty?
+      category_page = Nokogiri::HTML(html.body_str)
+      puts "parsing page number #{page_counter}"
+      products = category_page.xpath('//div[@class="product-container"]
+')
 
-    category_page = Nokogiri::HTML(html.body_str)
-    puts "parsing page number #{page_counter}"
-    products = category_page.xpath('//div[@class="main_content_area"]
-//div[@class="columns-container wide_container"]
-    //div[@class="pro_outer_box"]')
+      products_hash = get_href_title(products)
+      products_packages = get_packages_prices(products_hash)
+      combine_info(products_hash, products_packages, file_name.to_s, page_counter)
 
-    products_hash = get_href_title(products)
-    products_packages = get_packages_prices(products_hash)
-    combine_info(products_hash, products_packages, file_name.to_s, page_counter)
+      page_counter += 1
 
-    page_counter += 1
+    else
+      marker = false
+    end
 
-  else
-    marker = false
   end
-
 end
+
+main
